@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="CronJob_Backup">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/CronJob_Backup/stratzy.zip!/" />
+      <root url="jar://$PROJECT_DIR$/CronJob_Backup/music-react.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

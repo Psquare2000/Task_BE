@@ -24,6 +24,13 @@ import (
 // 	fmt.Println(message)
 // }
 
+func isRunningInContainer() bool {
+    if _, err := os.Stat("/.dockerenv"); err != nil {
+        return false
+    }
+    return true
+}
+
 func downloadGitHubRepoAsZip(url string, dest string) error {
 	// Create the destination directory if it doesn't exist
 	err := os.MkdirAll(dest, os.ModePerm)
@@ -61,7 +68,7 @@ func downloadGitHubRepoAsZip(url string, dest string) error {
 		defer rc.Close()
 
 		// Create the destination file
-		path := filepath.Join(dest, file.Name)
+		path := filepath.Join("/github_backups/"+dest, file.Name)
 		if file.FileInfo().IsDir() {
 			os.MkdirAll(path, os.ModePerm)
 			continue
@@ -83,7 +90,7 @@ func downloadGitHubRepoAsZip(url string, dest string) error {
 	return nil
 }
 
-func getzipfile(repoUrl string) (int64, *os.File, error) {
+func getzipfile(repoUrl string, dest string) (int64, *os.File, error) {
 	// Get the repository URL from the user
 
 	// Replace "github.com" with "codeload.github.com" to download a ZIP file
@@ -102,20 +109,42 @@ func getzipfile(repoUrl string) (int64, *os.File, error) {
 	// Remove the ".git" extension
 	component = strings.TrimSuffix(component, ".git")
 	// Create a new ZIP file
-	zipFile, err := os.Create(component + ".zip")
-	if err != nil {
-		fmt.Println("Error creating ZIP file:", err)
-		return 0, nil, err
-	}
-	defer zipFile.Close()
+	if isRunningInContainer(){
+            fmt.Println("running in docker")
+            zipFile, err := os.Create("/github_backups/"+dest + ".zip")
+            if err != nil {
+            		fmt.Println("Error creating ZIP file:", err)
+            		return 0, nil, err
+            	}
+            	defer zipFile.Close()
 
-	// Copy the downloaded ZIP file to the new ZIP file
-	zsize, err := io.Copy(zipFile, resp.Body)
-	if err != nil {
-		fmt.Println("Error copying ZIP file:", err)
-		return 0, nil, err
-	}
-	return zsize, zipFile, nil
+            	// Copy the downloaded ZIP file to the new ZIP file
+            	zsize, err := io.Copy(zipFile, resp.Body)
+            	if err != nil {
+            		fmt.Println("Error copying ZIP file:", err)
+            		return 0, nil, err
+            	}
+            	return zsize, zipFile, nil
+        }else{
+            zipFile, err := os.Create(component + ".zip")
+            fmt.Println("not running in docker")
+            if err != nil {
+            		fmt.Println("Error creating ZIP file:", err)
+            		return 0, nil, err
+            	}
+            	defer zipFile.Close()
+
+            	// Copy the downloaded ZIP file to the new ZIP file
+            	zsize, err := io.Copy(zipFile, resp.Body)
+            	if err != nil {
+            		fmt.Println("Error copying ZIP file:", err)
+            		return 0, nil, err
+            	}
+            	return zsize, zipFile, nil
+        }
+        return 0,nil,err
+
+
 }
 
 func runCronJobs(request map[string]interface{}, ctx context.Context) {
@@ -129,7 +158,7 @@ func runCronJobs(request map[string]interface{}, ctx context.Context) {
 			// fmt.Println("Task running...")
 			// time.Sleep(time.Second)
 
-			_, zFile, zrr := getzipfile(request["repositaryLink"].(string))
+			_, zFile, zrr := getzipfile(request["repositaryLink"].(string),request["backupLocation"].(string))
 
 			log.Println(zFile.Name())
 
